@@ -2,9 +2,8 @@
 -- Construction OS — Stage 1 Seed Data
 -- ============================================================
 
--- Default admin user  (password: admin123)
-INSERT IGNORE INTO `users` (`name`, `email`, `password`, `role`) VALUES
-('Admin User', 'admin@constructionos.com', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uMpF8190W', 'admin');
+-- Default admin user — run setup-admin.php on first deploy to create this correctly
+-- INSERT handled by setup-admin.php (generates proper bcrypt hash at runtime)
 
 -- Default company settings
 INSERT IGNORE INTO `company_settings`
