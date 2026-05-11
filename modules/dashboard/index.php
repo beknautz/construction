@@ -137,7 +137,7 @@ include __DIR__ . '/../../includes/header.php';
                                  LEFT JOIN users u ON u.id = a.user_id
                                  ORDER BY a.created_at DESC LIMIT 10'
                             )->fetchAll();
-                        } catch (Throwable) {
+                        } catch (Throwable $e) {
                             $activity = [];
                         }
                         ?>
