@@ -6,23 +6,7 @@
 define('APP_NAME',    'Construction OS');
 define('APP_VERSION', '1.0.0');
 define('APP_ENV',     getenv('APP_ENV') ?: 'production');
-
-// Auto-detect APP_URL from the request when not set via environment.
-// Works on localhost, cPanel VPS, subdomain, or subfolder installs.
-if (!defined('APP_URL')) {
-    if (getenv('APP_URL')) {
-        define('APP_URL', rtrim(getenv('APP_URL'), '/'));
-    } else {
-        $scheme   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host     = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        // Derive subfolder path: strip /index.php and everything after from SCRIPT_NAME
-        $script   = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
-        $base     = rtrim(dirname($script), '/\\');
-        // Walk up until we hit the app root (where config/ lives)
-        $appRoot  = rtrim(str_replace($_SERVER['DOCUMENT_ROOT'] ?? '', '', __DIR__ . '/..'), '/');
-        define('APP_URL', $scheme . '://' . $host . $appRoot);
-    }
-}
+define('APP_URL',     getenv('APP_URL') ?: 'https://tradeflex.ai');
 
 // Session
 define('SESSION_NAME',     'construction_os');
