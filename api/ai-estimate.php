@@ -31,6 +31,20 @@ if (!$claude->isEnabled()) {
     echo json_encode(['error' => 'Claude API key not configured. Go to Settings → AI Settings.']); exit;
 }
 
+// Tenant quota check
+if (tid() !== null) {
+    $tidVal = tid();
+    $quotaRow = $db->prepare('SELECT t.ai_calls_used, p.ai_calls_limit
+                               FROM tenants t JOIN subscription_plans p ON p.id = t.plan_id
+                               WHERE t.id = ? LIMIT 1');
+    $quotaRow->execute([$tidVal]);
+    $quota = $quotaRow->fetch();
+    if ($quota && (int)$quota['ai_calls_used'] >= (int)$quota['ai_calls_limit']) {
+        echo json_encode(['error' => 'AI call limit reached for this billing period. Upgrade your plan to continue.']);
+        exit;
+    }
+}
+
 // ---------------------------------------------------------------
 // Build the estimating prompt
 // ---------------------------------------------------------------
@@ -82,7 +96,7 @@ try {
         exit;
     }
 
-    // Log the AI call
+    // Log the AI call to estimate history
     $db->prepare(
         'INSERT INTO estimate_ai_suggestions
          (estimate_id, user_id, prompt, response, model, input_tokens, output_tokens, cost_usd)
@@ -97,6 +111,9 @@ try {
         $outputTokens,
         $cost,
     ]);
+
+    // Log against tenant quota
+    log_tenant_ai_usage($inputTokens, $outputTokens, $cost, 'estimate', $estimate_id, $model);
 
     $parsed['cost_usd']       = $cost;
     $parsed['input_tokens']   = $inputTokens;

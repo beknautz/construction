@@ -31,6 +31,9 @@ $offset  = ($page - 1) * $limit;
 $where  = ['1=1'];
 $params = [];
 
+// Tenant scope
+if (tid() !== null) { $where[] = 'p.tenant_id = ?'; $params[] = tid(); }
+
 if ($search) {
     $where[]  = '(p.title LIKE ? OR p.client_name LIKE ? OR p.client_email LIKE ? OR p.client_phone LIKE ?)';
     $s = "%$search%";
@@ -57,10 +60,12 @@ $stmt = $db->prepare(
 $stmt->execute($params);
 $projects = $stmt->fetchAll();
 
-// Status counts
-$pipeline = $db->query(
-    "SELECT status, COUNT(*) as cnt FROM projects GROUP BY status"
-)->fetchAll(PDO::FETCH_KEY_PAIR);
+// Status counts (tenant-scoped)
+$plWhere  = tid() !== null ? 'WHERE tenant_id = ?' : '';
+$plParams = tid() !== null ? [tid()] : [];
+$plStmt   = $db->prepare("SELECT status, COUNT(*) as cnt FROM projects {$plWhere} GROUP BY status");
+$plStmt->execute($plParams);
+$pipeline = $plStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
 // Revenue totals
 $contracted_total = db_sum('projects', 'contract_amount',

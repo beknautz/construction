@@ -18,12 +18,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$email || !$password) {
         $error = 'Please enter your email and password.';
-    } elseif (login_user($email, $password)) {
-        log_activity('auth', 'login', 'User logged in');
-        header('Location: ' . APP_URL . '/modules/dashboard/');
-        exit;
     } else {
-        $error = 'Invalid email or password. Please try again.';
+        $result = login_user($email, $password);
+        if ($result === true) {
+            log_activity('auth', 'login', 'User logged in');
+            header('Location: ' . APP_URL . '/modules/dashboard/');
+            exit;
+        } elseif ($result === 'suspended') {
+            $error = 'Your account has been suspended. Please contact support.';
+        } elseif ($result === 'trial_expired') {
+            $error = 'Your free trial has expired. <a href="' . APP_URL . '/billing/">Upgrade your plan</a> to continue.';
+        } else {
+            $error = 'Invalid email or password. Please try again.';
+        }
     }
 }
 ?>
@@ -90,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="text-center mt-4">
         <small class="text-muted">
-            Default: <code>admin@constructionos.com</code> / <code>admin123</code>
+            Don't have an account? <a href="<?= APP_URL ?>/register.php">Start free trial</a>
         </small>
     </div>
 </div>

@@ -55,6 +55,35 @@ function nav_link(string $label, string $icon, string $href, string $module, str
 
     <!-- Bottom links -->
     <div class="sidebar-footer mt-auto">
+        <?php if (current_tenant_id() !== null): ?>
+        <?php
+        // Show AI usage mini-bar for tenants
+        $tenantMeta = $_SESSION['tenant'] ?? [];
+        $usedCalls  = (int)($tenantMeta['ai_calls_used']  ?? 0);
+        $limitCalls = (int)($tenantMeta['ai_calls_limit'] ?? 100);
+        $barPct     = $limitCalls > 0 ? min(100, round($usedCalls / $limitCalls * 100)) : 0;
+        $barCls     = $barPct >= 90 ? 'bg-danger' : ($barPct >= 70 ? 'bg-warning' : 'bg-success');
+        ?>
+        <a href="<?= APP_URL ?>/billing/" class="nav-link <?= $current_module === 'billing' ? 'active' : '' ?> position-relative py-2">
+            <i class="bi bi-credit-card"></i>
+            <span>
+                Billing
+                <small class="d-block text-muted" style="font-size:.7rem;line-height:1.2">
+                    <?= number_format($usedCalls) ?> / <?= number_format($limitCalls) ?> AI calls
+                </small>
+            </span>
+        </a>
+        <div class="px-3 pb-1" style="margin-top:-6px;">
+            <div class="progress" style="height:4px;">
+                <div class="progress-bar <?= $barCls ?>" style="width:<?= $barPct ?>%"></div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if (current_tenant_id() === null && has_role('admin')): ?>
+        <?= nav_link('Admin', 'bi-shield-lock-fill', APP_URL . '/admin/', 'admin', $current_module) ?>
+        <?php endif; ?>
+
         <?= nav_link('Settings', 'bi-gear-fill', APP_URL . '/modules/settings/', 'settings', $current_module) ?>
         <a class="nav-link text-danger" href="<?= APP_URL ?>/logout.php">
             <i class="bi bi-box-arrow-left"></i>

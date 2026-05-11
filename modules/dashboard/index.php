@@ -131,12 +131,17 @@ include __DIR__ . '/../../includes/header.php';
                         </div>
                         <?php
                         try {
-                            $activity = get_db()->query(
-                                'SELECT a.*, u.name as user_name
+                            $actWhere  = tid() !== null ? 'WHERE u.tenant_id = ?' : '';
+                            $actParams = tid() !== null ? [tid()] : [];
+                            $actStmt   = get_db()->prepare(
+                                "SELECT a.*, u.name as user_name
                                  FROM activity_log a
                                  LEFT JOIN users u ON u.id = a.user_id
-                                 ORDER BY a.created_at DESC LIMIT 10'
-                            )->fetchAll();
+                                 {$actWhere}
+                                 ORDER BY a.created_at DESC LIMIT 10"
+                            );
+                            $actStmt->execute($actParams);
+                            $activity = $actStmt->fetchAll();
                         } catch (Throwable $e) {
                             $activity = [];
                         }

@@ -21,6 +21,9 @@ $offset     = ($page - 1) * $limit;
 $where  = ['1=1'];
 $params = [];
 
+// Tenant scope
+if (tid() !== null) { $where[] = 'e.tenant_id = ?'; $params[] = tid(); }
+
 if ($project_id) { $where[] = 'e.project_id = ?'; $params[] = $project_id; }
 if ($search)     { $where[] = '(e.title LIKE ? OR e.client_name LIKE ?)'; $s = "%$search%"; $params = array_merge($params, [$s, $s]); }
 if ($status)     { $where[] = 'e.status = ?'; $params[] = $status; }

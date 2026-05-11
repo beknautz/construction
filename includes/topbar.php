@@ -32,6 +32,12 @@
             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
                 <li><h6 class="dropdown-header"><?= e($user['email'] ?? '') ?></h6></li>
                 <li><a class="dropdown-item" href="<?= APP_URL ?>/modules/settings/"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                <?php if (current_tenant_id() !== null): ?>
+                <li><a class="dropdown-item" href="<?= APP_URL ?>/billing/"><i class="bi bi-credit-card me-2"></i>Billing</a></li>
+                <?php endif; ?>
+                <?php if (current_tenant_id() === null && has_role('admin')): ?>
+                <li><a class="dropdown-item" href="<?= APP_URL ?>/admin/"><i class="bi bi-shield-lock me-2"></i>Admin Panel</a></li>
+                <?php endif; ?>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" href="<?= APP_URL ?>/logout.php"><i class="bi bi-box-arrow-left me-2"></i>Logout</a></li>
             </ul>

@@ -23,6 +23,9 @@ $offset  = ($page - 1) * $limit;
 $where  = ['1=1'];
 $params = [];
 
+// Tenant scope
+if (tid() !== null) { $where[] = 'l.tenant_id = ?'; $params[] = tid(); }
+
 if ($search) {
     $where[]  = '(l.first_name LIKE ? OR l.last_name LIKE ? OR l.email LIKE ? OR l.phone LIKE ? OR l.company LIKE ?)';
     $s = "%$search%";
@@ -53,10 +56,12 @@ $stmt = $db->prepare(
 $stmt->execute($params);
 $leads = $stmt->fetchAll();
 
-// Pipeline counts for header bar
-$pipeline = $db->query(
-    "SELECT status, COUNT(*) as cnt FROM leads GROUP BY status"
-)->fetchAll(PDO::FETCH_KEY_PAIR);
+// Pipeline counts for header bar (scoped to tenant)
+$pipelineWhere  = tid() !== null ? 'WHERE tenant_id = ?' : '';
+$pipelineParams = tid() !== null ? [tid()] : [];
+$pipelineStmt   = $db->prepare("SELECT status, COUNT(*) as cnt FROM leads {$pipelineWhere} GROUP BY status");
+$pipelineStmt->execute($pipelineParams);
+$pipeline = $pipelineStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
 $statuses = ['New','Contacted','Site Visit Scheduled','Estimate Needed','Proposal Sent','Won','Lost'];
 $sources  = ['Google Ads','Website','Referral','Facebook','Phone Call','Repeat Client','Other'];
