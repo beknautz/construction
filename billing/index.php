@@ -72,13 +72,8 @@ require_once __DIR__ . '/../includes/layout-header.php';
                 <p class="text-muted mb-3"><?= money($tenant['price_monthly']) ?>/month</p>
 
                 <?php
-                $statusClass = match($tenant['status']) {
-                    'active'    => 'success',
-                    'trial'     => 'warning',
-                    'past_due'  => 'danger',
-                    'canceled'  => 'secondary',
-                    default     => 'secondary',
-                };
+                $scMap       = ['active'=>'success','trial'=>'warning','past_due'=>'danger'];
+                $statusClass = $scMap[$tenant['status']] ?? 'secondary';
                 ?>
                 <span class="badge bg-<?= $statusClass ?> mb-3">
                     <?= e(ucfirst($tenant['status'])) ?>

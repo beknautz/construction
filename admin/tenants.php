@@ -124,13 +124,8 @@ require_once __DIR__ . '/../includes/layout-header.php';
                 <p class="text-muted mb-3 small"><?= e($tenant['phone'] ?? '') ?></p>
 
                 <?php
-                $sc = match($tenant['status']) {
-                    'active'    => 'success',
-                    'trial'     => 'warning',
-                    'past_due'  => 'danger',
-                    'suspended' => 'dark',
-                    default     => 'secondary',
-                };
+                $scMap = ['active'=>'success','trial'=>'warning','past_due'=>'danger','suspended'=>'dark'];
+                $sc    = $scMap[$tenant['status']] ?? 'secondary';
                 ?>
                 <div class="mb-3">
                     <span class="badge bg-<?= $sc ?> me-2"><?= e(ucfirst($tenant['status'])) ?></span>
@@ -307,13 +302,8 @@ require_once __DIR__ . '/../includes/layout-header.php';
             <tbody>
             <?php foreach ($tenants as $t): ?>
             <?php
-            $sc = match($t['status']) {
-                'active'    => 'success',
-                'trial'     => 'warning',
-                'past_due'  => 'danger',
-                'suspended' => 'dark',
-                default     => 'secondary',
-            };
+            $scMap = ['active'=>'success','trial'=>'warning','past_due'=>'danger','suspended'=>'dark'];
+            $sc    = $scMap[$t['status']] ?? 'secondary';
             ?>
             <tr>
                 <td>

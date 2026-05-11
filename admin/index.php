@@ -112,12 +112,8 @@ require_once __DIR__ . '/../includes/layout-header.php';
                         <td><?= e($t['plan_name']) ?></td>
                         <td>
                             <?php
-                            $sc = match($t['status']) {
-                                'active'   => 'success',
-                                'trial'    => 'warning',
-                                'past_due' => 'danger',
-                                default    => 'secondary',
-                            };
+                            $scMap = ['active'=>'success','trial'=>'warning','past_due'=>'danger'];
+                            $sc    = $scMap[$t['status']] ?? 'secondary';
                             ?>
                             <span class="badge bg-<?= $sc ?>"><?= e(ucfirst($t['status'])) ?></span>
                         </td>
