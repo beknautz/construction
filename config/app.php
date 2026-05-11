@@ -3,6 +3,11 @@
 // Application Configuration
 // ============================================================
 
+// Minimum PHP 7.4 required
+if (version_compare(PHP_VERSION, '7.4.0', '<')) {
+    die('Construction OS requires PHP 7.4 or higher. Current version: ' . PHP_VERSION);
+}
+
 define('APP_NAME',    'Construction OS');
 define('APP_VERSION', '1.0.0');
 define('APP_ENV',     getenv('APP_ENV') ?: 'production');

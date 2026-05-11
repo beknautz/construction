@@ -1,16 +1,16 @@
 <?php
 // ============================================================
-// Global Helper Functions
+// Global Helper Functions  (PHP 7.4+ compatible)
 // ============================================================
 
 /** Safely escape HTML output */
-function e(mixed $val): string
+function e($val): string
 {
     return htmlspecialchars((string)$val, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
 /** Format a dollar amount */
-function money(float|int|string $amount): string
+function money($amount): string
 {
     return '$' . number_format((float)$amount, 2);
 }
@@ -83,7 +83,7 @@ function log_activity(string $module, string $action, string $description = '', 
             $description,
             $_SERVER['REMOTE_ADDR'] ?? null,
         ]);
-    } catch (Throwable) {
+    } catch (Throwable $e) {
         // Never let logging crash the app
     }
 }
@@ -95,7 +95,7 @@ function company_settings(): array
     if ($settings === null) {
         try {
             $settings = get_db()->query('SELECT * FROM company_settings WHERE id = 1')->fetch() ?: [];
-        } catch (Throwable) {
+        } catch (Throwable $e) {
             $settings = [];
         }
     }
@@ -110,7 +110,7 @@ function db_count(string $table, string $where = '', array $params = []): int
         $stmt = get_db()->prepare($sql);
         $stmt->execute($params);
         return (int)$stmt->fetchColumn();
-    } catch (Throwable) {
+    } catch (Throwable $e) {
         return 0;
     }
 }
@@ -123,7 +123,7 @@ function db_sum(string $table, string $column, string $where = '', array $params
         $stmt = get_db()->prepare($sql);
         $stmt->execute($params);
         return (float)$stmt->fetchColumn();
-    } catch (Throwable) {
+    } catch (Throwable $e) {
         return 0.0;
     }
 }
