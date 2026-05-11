@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/estimate-helpers.php';
 
 require_login();
 
@@ -15,28 +16,28 @@ $items_json  = $_POST['items']             ?? '[]';
 
 if (!$estimate_id) { http_response_code(400); exit; }
 
-// Verify estimate belongs to session user's accessible data
-$est = $db->prepare('SELECT markup_pct, tax_pct, waste_pct FROM estimates WHERE id = ?');
-$est->execute([$estimate_id]);
-$est = $est->fetch();
+// Fetch full estimate row — section.php partial needs $est['id'] and percentages
+$estStmt = $db->prepare('SELECT * FROM estimates WHERE id = ?');
+$estStmt->execute([$estimate_id]);
+$est = $estStmt->fetch();
 if (!$est) { http_response_code(404); exit; }
 
 // Insert section
 $db->prepare('INSERT INTO estimate_sections (estimate_id, category) VALUES (?,?)')->execute([$estimate_id, $category]);
 $section_id = (int)$db->lastInsertId();
 
-// If AI suggested items were passed, insert them too
+// Insert AI-suggested items if provided
 $suggested = json_decode($items_json, true) ?: [];
 foreach ($suggested as $item) {
-    $desc   = trim($item['description'] ?? '');
+    $desc  = trim($item['description'] ?? '');
     if (!$desc) continue;
-    $labor  = (float)($item['labor_cost']    ?? 0);
-    $mat    = (float)($item['material_cost'] ?? 0);
-    $equip  = (float)($item['equipment_cost']?? 0);
-    $sub    = (float)($item['sub_cost']      ?? 0);
-    $qty    = (float)($item['qty']           ?? 1);
-    $unit   = trim($item['unit']             ?? '');
-    $total  = round(($labor + $mat + $equip + $sub) * $qty, 2);
+    $labor = max(0, (float)($item['labor_cost']     ?? 0));
+    $mat   = max(0, (float)($item['material_cost']  ?? 0));
+    $equip = max(0, (float)($item['equipment_cost'] ?? 0));
+    $sub   = max(0, (float)($item['sub_cost']       ?? 0));
+    $qty   = max(0, (float)($item['qty']            ?? 1));
+    $unit  = trim($item['unit'] ?? '');
+    $total = round(($labor + $mat + $equip + $sub) * $qty, 2);
 
     $db->prepare(
         'INSERT INTO estimate_line_items
@@ -45,17 +46,14 @@ foreach ($suggested as $item) {
     )->execute([$section_id, $estimate_id, $desc, $qty, $unit ?: null, $labor, $mat, $equip, $sub, $total]);
 }
 
-// Recalculate estimate totals
-require_once __DIR__ . '/../includes/estimate-helpers.php';
 recalc_estimate($estimate_id, $db);
 
-// Reload the section from DB for the partial render
+// Reload section with total
 $section = $db->prepare(
     'SELECT s.*, COALESCE(SUM(li.line_total),0) AS section_total
      FROM estimate_sections s
      LEFT JOIN estimate_line_items li ON li.section_id = s.id
-     WHERE s.id = ?
-     GROUP BY s.id'
+     WHERE s.id = ? GROUP BY s.id'
 );
 $section->execute([$section_id]);
 $section = $section->fetch();
@@ -64,8 +62,20 @@ $all_items = $db->prepare('SELECT * FROM estimate_line_items WHERE section_id = 
 $all_items->execute([$section_id]);
 $items_by_section[$section_id] = $all_items->fetchAll();
 
-define('APP_URL_DEFINED', true); // prevent re-define
-
+// Render section partial (main HTMX response)
 ob_start();
 include __DIR__ . '/../modules/estimates/partials/section.php';
-echo ob_get_clean();
+$sectionHtml = ob_get_clean();
+echo $sectionHtml;
+
+// OOB: update estimate totals panel
+$estRow = $db->prepare('SELECT subtotal, waste_amount, markup_amount, tax_amount, grand_total FROM estimates WHERE id = ?');
+$estRow->execute([$estimate_id]);
+$estTotals = $estRow->fetch();
+if ($estTotals) {
+    echo '<span hx-swap-oob="true" id="tot-subtotal">' . money($estTotals['subtotal'])     . '</span>';
+    echo '<span hx-swap-oob="true" id="tot-waste">'    . money($estTotals['waste_amount'])  . '</span>';
+    echo '<span hx-swap-oob="true" id="tot-markup">'   . money($estTotals['markup_amount']) . '</span>';
+    echo '<span hx-swap-oob="true" id="tot-tax">'      . money($estTotals['tax_amount'])    . '</span>';
+    echo '<span hx-swap-oob="true" id="tot-grand">'    . money($estTotals['grand_total'])   . '</span>';
+}

@@ -41,6 +41,13 @@ $categories = ['Demo','Framing','Concrete','Plumbing','Electrical','HVAC','Drywa
                'Tile','Flooring','Cabinets','Finish Carpentry','Paint','Excavation','Permits','Other'];
 $statuses   = ['Draft','Review','Approved','Rejected','Archived'];
 
+// Load tenant labor rates for AI prompt context
+$coRates = [];
+$tid = tid();
+$coStmt = $db->prepare('SELECT * FROM company_settings WHERE ' . ($tid !== null ? 'tenant_id = ?' : 'id = 1') . ' LIMIT 1');
+$coStmt->execute($tid !== null ? [$tid] : []);
+$coRates = $coStmt->fetch() ?: [];
+
 include __DIR__ . '/../../includes/header.php';
 ?>
 
@@ -89,13 +96,13 @@ include __DIR__ . '/../../includes/header.php';
                     <div class="app-card mb-3">
                         <h6 class="fw-bold mb-3"><i class="bi bi-receipt me-2 text-muted"></i>Totals</h6>
                         <table class="table table-sm mb-0 small">
-                            <tr><td class="text-muted">Subtotal</td><td class="text-end fw-medium"><?= money($est['subtotal']) ?></td></tr>
-                            <tr><td class="text-muted">Waste (<?= $est['waste_pct'] ?>%)</td><td class="text-end"><?= money($est['waste_amount']) ?></td></tr>
-                            <tr><td class="text-muted">Markup (<?= $est['markup_pct'] ?>%)</td><td class="text-end"><?= money($est['markup_amount']) ?></td></tr>
-                            <tr><td class="text-muted">Tax (<?= $est['tax_pct'] ?>%)</td><td class="text-end"><?= money($est['tax_amount']) ?></td></tr>
+                            <tr><td class="text-muted">Subtotal</td><td class="text-end fw-medium"><span id="tot-subtotal"><?= money($est['subtotal']) ?></span></td></tr>
+                            <tr><td class="text-muted">Waste (<?= $est['waste_pct'] ?>%)</td><td class="text-end"><span id="tot-waste"><?= money($est['waste_amount']) ?></span></td></tr>
+                            <tr><td class="text-muted">Markup (<?= $est['markup_pct'] ?>%)</td><td class="text-end"><span id="tot-markup"><?= money($est['markup_amount']) ?></span></td></tr>
+                            <tr><td class="text-muted">Tax (<?= $est['tax_pct'] ?>%)</td><td class="text-end"><span id="tot-tax"><?= money($est['tax_amount']) ?></span></td></tr>
                             <tr class="table-active">
                                 <td class="fw-bold">Grand Total</td>
-                                <td class="text-end fw-bold fs-5 text-success"><?= money($est['grand_total']) ?></td>
+                                <td class="text-end fw-bold fs-5 text-success"><span id="tot-grand"><?= money($est['grand_total']) ?></span></td>
                             </tr>
                         </table>
                     </div>
@@ -106,6 +113,19 @@ include __DIR__ . '/../../includes/header.php';
                             <i class="bi bi-stars me-2 text-warning"></i>AI Estimating Assist
                         </h6>
                         <p class="small text-muted mb-2">Describe the project in plain English and Claude will suggest scope, line items, and risks.</p>
+                        <?php if (!empty($coRates['labor_rate_carpenter']) || !empty($coRates['labor_rate_general'])): ?>
+                        <div class="alert alert-success-subtle border border-success-subtle py-1 px-2 small mb-2">
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>
+                            Using your labor rates
+                            <a href="<?= APP_URL ?>/modules/settings/#tab-rates" class="float-end text-muted">edit</a>
+                        </div>
+                        <?php else: ?>
+                        <div class="alert alert-light border py-1 px-2 small mb-2">
+                            <i class="bi bi-info-circle text-muted me-1"></i>
+                            Using generic market rates.
+                            <a href="<?= APP_URL ?>/modules/settings/">Set your rates</a>
+                        </div>
+                        <?php endif; ?>
                         <textarea id="ai-prompt" class="form-control form-control-sm mb-2" rows="4"
                                   placeholder="e.g. Full kitchen remodel, 200 sqft. Remove existing cabinets and tile floor. Install new cabinets, quartz countertops, subway tile backsplash, LVP flooring, and repaint."></textarea>
                         <button class="btn btn-sm btn-warning w-100 fw-semibold" id="ai-ask-btn" onclick="runAiEstimate()">
@@ -227,6 +247,16 @@ include __DIR__ . '/../../includes/header.php';
 <script>
 const ESTIMATE_ID = <?= $est['id'] ?>;
 const API_URL = '<?= APP_URL ?>/api/ai-estimate.php';
+// Tenant labor rates passed to AI (from company settings)
+const TENANT_RATES = <?= json_encode([
+    'labor_rate_general'     => (float)($coRates['labor_rate_general']     ?? 0),
+    'labor_rate_carpenter'   => (float)($coRates['labor_rate_carpenter']   ?? 0),
+    'labor_rate_electrician' => (float)($coRates['labor_rate_electrician'] ?? 0),
+    'labor_rate_plumber'     => (float)($coRates['labor_rate_plumber']     ?? 0),
+    'labor_rate_hvac'        => (float)($coRates['labor_rate_hvac']        ?? 0),
+    'labor_rate_painter'     => (float)($coRates['labor_rate_painter']     ?? 0),
+    'labor_rate_equipment'   => (float)($coRates['labor_rate_equipment']   ?? 0),
+]) ?>;
 
 function runAiEstimate() {
     const prompt = document.getElementById('ai-prompt').value.trim();
@@ -239,6 +269,7 @@ function runAiEstimate() {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'estimate_id=' + ESTIMATE_ID + '&prompt=' + encodeURIComponent(prompt)
+            + '&rates=' + encodeURIComponent(JSON.stringify(TENANT_RATES))
     })
     .then(r => r.json())
     .then(data => {
@@ -317,9 +348,18 @@ function addSuggestedSection(category, items) {
         const container = document.getElementById('sections-container');
         const empty = document.getElementById('empty-msg');
         if (empty) empty.remove();
-        container.insertAdjacentHTML('beforeend', html);
-        // Recalc totals
-        setTimeout(recalcTotals, 300);
+        // Let HTMX process OOB swaps in the response (totals panel)
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        // Find and process OOB spans first
+        tmp.querySelectorAll('[hx-swap-oob]').forEach(el => {
+            const target = document.getElementById(el.id);
+            if (target) target.innerHTML = el.innerHTML;
+            el.remove();
+        });
+        container.insertAdjacentHTML('beforeend', tmp.innerHTML);
+        // Re-initialize HTMX on the new elements
+        htmx.process(container);
     });
 }
 
@@ -331,8 +371,12 @@ function recalcTotals() {
     })
     .then(r => r.json())
     .then(data => {
-        if (data.grand_total !== undefined) {
-            location.reload(); // simple reload to refresh totals card
+        if (data.subtotal !== undefined) {
+            document.getElementById('tot-subtotal').textContent = '$' + parseFloat(data.subtotal).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('tot-waste').textContent   = '$' + parseFloat(data.waste_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('tot-markup').textContent  = '$' + parseFloat(data.markup_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('tot-tax').textContent     = '$' + parseFloat(data.tax_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('tot-grand').textContent   = '$' + parseFloat(data.grand_total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         }
     });
 }

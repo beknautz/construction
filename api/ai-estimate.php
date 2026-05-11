@@ -48,6 +48,33 @@ if (tid() !== null) {
 // ---------------------------------------------------------------
 // Build the estimating prompt
 // ---------------------------------------------------------------
+// Build labor rates context from tenant settings
+$rates_json  = trim($_POST['rates'] ?? '{}');
+$tenantRates = json_decode($rates_json, true) ?: [];
+
+$rateLines = [];
+$rateMap = [
+    'labor_rate_general'     => 'General laborer',
+    'labor_rate_carpenter'   => 'Carpenter/framer',
+    'labor_rate_electrician' => 'Electrician',
+    'labor_rate_plumber'     => 'Plumber',
+    'labor_rate_hvac'        => 'HVAC technician',
+    'labor_rate_painter'     => 'Painter',
+    'labor_rate_equipment'   => 'Equipment operator',
+];
+foreach ($rateMap as $key => $label) {
+    $rate = (float)($tenantRates[$key] ?? 0);
+    if ($rate > 0) {
+        $rateLines[] = "- {$label}: \${$rate}/hr";
+    }
+}
+$ratesContext = '';
+if ($rateLines) {
+    $ratesContext = "\n\nThis contractor's labor rates (USE THESE EXACT RATES when calculating labor costs):\n"
+        . implode("\n", $rateLines)
+        . "\nCalculate labor_cost as: hours_needed × hourly_rate. Do not use national averages when rates are provided above.";
+}
+
 $system_prompt = <<<PROMPT
 You are an expert construction estimator for residential and commercial contractors.
 A contractor has described a project in plain English. Your job is to:
@@ -86,7 +113,7 @@ Valid category values: Demo, Framing, Concrete, Plumbing, Electrical, HVAC, Dryw
 All cost values must be numbers (no dollar signs). Provide realistic market-rate estimates for a US contractor.
 PROMPT;
 
-$full_prompt = $system_prompt . "\n\nProject Description:\n" . $prompt_text;
+$full_prompt = $system_prompt . $ratesContext . "\n\nProject Description:\n" . $prompt_text;
 
 try {
     [$parsed, $inputTokens, $outputTokens, $cost, $model] = $claude->askJson($full_prompt, 4096);
