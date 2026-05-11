@@ -1,0 +1,372 @@
+/* ============================================================
+   Construction OS — App Styles
+   ============================================================ */
+
+:root {
+    --sidebar-width:     240px;
+    --sidebar-bg:        #1a1f2e;
+    --sidebar-text:      #a8b2c8;
+    --sidebar-hover:     rgba(255,255,255,.07);
+    --sidebar-active-bg: rgba(255,165,0,.15);
+    --sidebar-active:    #ffa500;
+    --topbar-h:          60px;
+    --topbar-bg:         #ffffff;
+    --topbar-border:     #e9ecef;
+    --body-bg:           #f4f6fa;
+    --card-bg:           #ffffff;
+    --card-border:       #e9ecef;
+    --card-radius:       .75rem;
+    --text-primary:      #1a1f2e;
+    --text-muted:        #6c757d;
+    --accent:            #ff6b00;
+    --accent-hover:      #e55d00;
+    --success:           #28a745;
+    --warning:           #ffc107;
+    --danger:            #dc3545;
+    --info:              #17a2b8;
+}
+
+/* ---- Reset ---- */
+*, *::before, *::after { box-sizing: border-box; }
+
+body.app-body {
+    margin: 0;
+    background: var(--body-bg);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text-primary);
+    font-size: .9rem;
+}
+
+/* ---- Layout ---- */
+.app-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-left: var(--sidebar-width);
+    transition: margin-left .25s ease;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 1040;
+    transition: transform .25s ease;
+    padding-bottom: 1rem;
+}
+
+.sidebar-brand {
+    padding: 1.25rem 1rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.brand-link {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    text-decoration: none;
+    color: #ffffff;
+}
+
+.brand-icon {
+    font-size: 1.5rem;
+    color: var(--accent);
+}
+
+.brand-name {
+    font-weight: 700;
+    font-size: .95rem;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+}
+
+.sidebar-nav {
+    padding: .5rem 0;
+}
+
+.nav-section-label {
+    list-style: none;
+    padding: .65rem 1rem .25rem;
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(255,255,255,.3);
+}
+
+.sidebar-nav .nav-link {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .5rem 1rem;
+    color: var(--sidebar-text);
+    border-radius: 0;
+    transition: background .15s, color .15s;
+    font-size: .87rem;
+    white-space: nowrap;
+}
+
+.sidebar-nav .nav-link i {
+    font-size: 1rem;
+    width: 1.25rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.sidebar-nav .nav-link:hover {
+    background: var(--sidebar-hover);
+    color: #fff;
+}
+
+.sidebar-nav .nav-link.active {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active);
+    font-weight: 600;
+    border-left: 3px solid var(--sidebar-active);
+}
+
+.sidebar-footer {
+    padding: .5rem 0;
+    border-top: 1px solid rgba(255,255,255,.07);
+    margin-top: .5rem;
+}
+
+.sidebar-footer .nav-link {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .5rem 1rem;
+    color: var(--sidebar-text);
+    text-decoration: none;
+    font-size: .87rem;
+    transition: color .15s;
+}
+
+.sidebar-footer .nav-link:hover { color: #fff; }
+.sidebar-footer .nav-link.text-danger:hover { color: #ff6b6b !important; }
+
+/* ---- Topbar ---- */
+.topbar {
+    height: var(--topbar-h);
+    background: var(--topbar-bg);
+    border-bottom: 1px solid var(--topbar-border);
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+.topbar-title {
+    font-size: .9rem;
+    color: var(--text-muted);
+}
+
+.avatar-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: .8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---- Page Content Area ---- */
+.page-content {
+    padding: 1.5rem;
+    flex: 1;
+}
+
+.page-header {
+    margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: .2rem;
+}
+
+/* ---- Cards ---- */
+.app-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: 1.25rem 1.5rem;
+    transition: box-shadow .2s;
+}
+
+.app-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); }
+
+/* Stat cards */
+.stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: box-shadow .2s, transform .2s;
+}
+
+.stat-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,.07);
+    transform: translateY(-1px);
+}
+
+.stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: .75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.stat-icon-orange  { background: rgba(255,107,0,.12);  color: #ff6b00; }
+.stat-icon-blue    { background: rgba(13,110,253,.12);  color: #0d6efd; }
+.stat-icon-green   { background: rgba(25,135,84,.12);   color: #198754; }
+.stat-icon-yellow  { background: rgba(255,193,7,.15);   color: #d4a000; }
+.stat-icon-purple  { background: rgba(111,66,193,.12);  color: #6f42c1; }
+.stat-icon-teal    { background: rgba(13,202,240,.12);  color: #0dcaf0; }
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+}
+
+.stat-label {
+    font-size: .78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-top: .15rem;
+}
+
+/* ---- Buttons ---- */
+.btn-accent {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+}
+
+.btn-accent:hover {
+    background: var(--accent-hover);
+    color: #fff;
+}
+
+/* ---- Tables ---- */
+.table-app {
+    --bs-table-bg: transparent;
+    font-size: .88rem;
+}
+
+.table-app thead th {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom-width: 1px;
+    padding: .65rem .75rem;
+}
+
+.table-app td { padding: .65rem .75rem; vertical-align: middle; }
+
+/* ---- Alert / Toast ---- */
+.toast-body { font-size: .87rem; }
+
+/* ---- Badges ---- */
+.bg-purple { background-color: #6f42c1 !important; }
+
+/* ---- Login Page ---- */
+.login-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1f2e 0%, #2d3450 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    background: #fff;
+    border-radius: 1rem;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+
+.login-logo { font-size: 2rem; color: var(--accent); }
+.login-title { font-weight: 700; font-size: 1.4rem; }
+
+/* ---- Empty State ---- */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+
+.empty-state i { font-size: 3rem; opacity: .3; }
+.empty-state p { margin-top: .75rem; }
+
+/* ---- Mobile ---- */
+@media (max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 1035;
+    }
+
+    .sidebar-overlay.show { display: block; }
+}
+
+/* ---- HTMX Loading indicator ---- */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity .2s;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* ---- Scrollbar ---- */
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }

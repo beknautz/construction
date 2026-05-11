@@ -1,0 +1,21 @@
+# Environment
+.env
+.env.local
+
+# Uploads (user content — never commit)
+assets/uploads/leads/*
+assets/uploads/projects/*
+assets/uploads/photos/*
+assets/uploads/documents/*
+!assets/uploads/**/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PHP
+vendor/
