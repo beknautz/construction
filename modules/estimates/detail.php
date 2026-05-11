@@ -161,11 +161,17 @@ include __DIR__ . '/../../includes/header.php';
 
                     <!-- AI Suggestions Panel (hidden until AI responds) -->
                     <div id="ai-suggestions" class="app-card mb-3 d-none border border-warning-subtle">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
                             <h6 class="fw-bold mb-0"><i class="bi bi-stars me-2 text-warning"></i>Claude's Suggestions</h6>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('ai-suggestions').classList.add('d-none')">
-                                <i class="bi bi-x"></i>
-                            </button>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('ai-suggestions').classList.add('d-none')">
+                                    <i class="bi bi-x"></i> Dismiss
+                                </button>
+                            </div>
+                        </div>
+                        <div class="alert alert-warning-subtle border border-warning-subtle small py-2 mb-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Review the suggestions below. Click <strong>Add All</strong> on each section to add it to your estimate, then adjust any line items inline.
                         </div>
                         <div id="ai-suggestions-body"></div>
                     </div>
@@ -246,8 +252,7 @@ include __DIR__ . '/../../includes/header.php';
 
 <script>
 const ESTIMATE_ID = <?= $est['id'] ?>;
-const API_URL = '<?= APP_URL ?>/api/ai-estimate.php';
-// Tenant labor rates passed to AI (from company settings)
+const API_URL     = '<?= APP_URL ?>/api/ai-estimate.php';
 const TENANT_RATES = <?= json_encode([
     'labor_rate_general'     => (float)($coRates['labor_rate_general']     ?? 0),
     'labor_rate_carpenter'   => (float)($coRates['labor_rate_carpenter']   ?? 0),
@@ -258,6 +263,10 @@ const TENANT_RATES = <?= json_encode([
     'labor_rate_equipment'   => (float)($coRates['labor_rate_equipment']   ?? 0),
 ]) ?>;
 
+// AI response is stored here — buttons reference by index, never embed JSON in HTML attributes
+let aiData = null;
+
+// ── Ask Claude ────────────────────────────────────────────────
 function runAiEstimate() {
     const prompt = document.getElementById('ai-prompt').value.trim();
     if (!prompt) { alert('Please describe the project first.'); return; }
@@ -268,16 +277,16 @@ function runAiEstimate() {
     fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'estimate_id=' + ESTIMATE_ID + '&prompt=' + encodeURIComponent(prompt)
-            + '&rates=' + encodeURIComponent(JSON.stringify(TENANT_RATES))
+        body: 'estimate_id=' + ESTIMATE_ID
+            + '&prompt='     + encodeURIComponent(prompt)
+            + '&rates='      + encodeURIComponent(JSON.stringify(TENANT_RATES))
     })
     .then(r => r.json())
     .then(data => {
         document.getElementById('ai-loading').classList.add('d-none');
         document.getElementById('ai-ask-btn').disabled = false;
-
         if (data.error) { alert('AI Error: ' + data.error); return; }
-
+        aiData = data;
         renderAiSuggestions(data);
         document.getElementById('ai-suggestions').classList.remove('d-none');
         document.getElementById('ai-suggestions').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -289,99 +298,153 @@ function runAiEstimate() {
     });
 }
 
+// ── Render suggestions panel ──────────────────────────────────
 function renderAiSuggestions(data) {
     let html = '';
 
     if (data.summary) {
-        html += `<div class="alert alert-light border mb-3"><strong>Summary:</strong> ${escHtml(data.summary)}</div>`;
+        html += '<div class="alert alert-light border mb-3"><strong>Summary:</strong> ' + esc(data.summary) + '</div>';
     }
 
-    if (data.sections && data.sections.length) {
-        html += '<h6 class="small fw-bold text-muted text-uppercase mb-2">Suggested Sections & Line Items</h6>';
-        data.sections.forEach(sec => {
-            html += `<div class="mb-3">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge bg-primary">${escHtml(sec.category)}</span>
-                    <button class="btn btn-xs btn-outline-success py-0 px-2" style="font-size:.75rem;"
-                            onclick="addSuggestedSection('${escHtml(sec.category)}', ${JSON.stringify(sec.items || []).replace(/</g,'\\u003c')})">
-                        <i class="bi bi-plus"></i> Add All
-                    </button>
-                </div>`;
-            (sec.items || []).forEach(item => {
-                html += `<div class="d-flex align-items-start gap-2 ps-2 py-1 border-start border-2 border-light mb-1 small">
-                    <div class="flex-grow-1">${escHtml(item.description)}</div>
-                    <div class="text-muted text-nowrap">$${item.material_cost || 0} mat · $${item.labor_cost || 0} labor</div>
-                </div>`;
-            });
-            html += '</div>';
-        });
+    // "Add All Sections" shortcut
+    if (data.sections && data.sections.length > 1) {
+        html += '<div class="d-flex justify-content-between align-items-center mb-2">'
+              + '<h6 class="small fw-bold text-muted text-uppercase mb-0">Suggested Sections &amp; Line Items</h6>'
+              + '<button class="btn btn-sm btn-success" onclick="addAllSections()">'
+              + '<i class="bi bi-layers me-1"></i>Add All Sections</button>'
+              + '</div>';
+    } else if (data.sections && data.sections.length) {
+        html += '<h6 class="small fw-bold text-muted text-uppercase mb-2">Suggested Sections &amp; Line Items</h6>';
     }
+
+    (data.sections || []).forEach(function(sec, idx) {
+        const sectionTotal = (sec.items || []).reduce(function(sum, it) {
+            return sum + (parseFloat(it.labor_cost) || 0) + (parseFloat(it.material_cost) || 0)
+                       + (parseFloat(it.equipment_cost) || 0) + (parseFloat(it.sub_cost) || 0);
+        }, 0);
+
+        html += '<div class="border rounded p-2 mb-2" id="ai-sec-' + idx + '">'
+              + '<div class="d-flex align-items-center gap-2 mb-2">'
+              + '<span class="badge bg-primary">' + esc(sec.category) + '</span>'
+              + '<span class="text-muted small ms-auto me-2">' + fmt(sectionTotal) + ' est.</span>'
+              + '<button class="btn btn-sm btn-outline-success py-0 px-2" '
+              +         'onclick="addSectionByIndex(' + idx + ')" '
+              +         'id="add-btn-' + idx + '">'
+              + '<i class="bi bi-plus-lg"></i> Add All</button>'
+              + '</div>';
+
+        (sec.items || []).forEach(function(item) {
+            const lineTotal = ((parseFloat(item.labor_cost) || 0) + (parseFloat(item.material_cost) || 0)
+                             + (parseFloat(item.equipment_cost) || 0) + (parseFloat(item.sub_cost) || 0))
+                             * (parseFloat(item.qty) || 1);
+            html += '<div class="d-flex align-items-start gap-2 ps-2 py-1 border-start border-2 border-light mb-1 small">'
+                  + '<div class="flex-grow-1">' + esc(item.description) + '</div>'
+                  + '<div class="text-muted text-nowrap">' + fmt(lineTotal) + '</div>'
+                  + '</div>';
+        });
+
+        html += '</div>';
+    });
 
     if (data.risks && data.risks.length) {
-        html += '<h6 class="small fw-bold text-danger text-uppercase mb-1 mt-3">Risk Items to Review</h6><ul class="small mb-2">';
-        data.risks.forEach(r => { html += `<li>${escHtml(r)}</li>`; });
+        html += '<h6 class="small fw-bold text-danger text-uppercase mb-1 mt-3">⚠ Risk Items to Verify</h6><ul class="small mb-2">';
+        data.risks.forEach(function(r) { html += '<li>' + esc(r) + '</li>'; });
         html += '</ul>';
     }
 
     if (data.missing && data.missing.length) {
-        html += '<h6 class="small fw-bold text-warning text-uppercase mb-1">Possible Missing Items</h6><ul class="small mb-0">';
-        data.missing.forEach(m => { html += `<li>${escHtml(m)}</li>`; });
+        html += '<h6 class="small fw-bold text-warning text-uppercase mb-1">Possibly Missing</h6><ul class="small mb-0">';
+        data.missing.forEach(function(m) { html += '<li>' + esc(m) + '</li>'; });
+        html += '</ul>';
+    }
+
+    if (data.allowances && data.allowances.length) {
+        html += '<h6 class="small fw-bold text-info text-uppercase mb-1 mt-2">Suggested Allowances</h6><ul class="small mb-0">';
+        data.allowances.forEach(function(a) { html += '<li>' + esc(a) + '</li>'; });
         html += '</ul>';
     }
 
     if (data.cost_usd) {
-        html += `<div class="text-end mt-2"><small class="text-muted">AI cost: $${parseFloat(data.cost_usd).toFixed(4)}</small></div>`;
+        html += '<div class="text-end mt-3 border-top pt-2"><small class="text-muted">AI cost: $' + parseFloat(data.cost_usd).toFixed(4) + '</small></div>';
     }
 
     document.getElementById('ai-suggestions-body').innerHTML = html;
 }
 
-function addSuggestedSection(category, items) {
+// ── Add one section by its index in aiData ────────────────────
+function addSectionByIndex(idx) {
+    if (!aiData || !aiData.sections || !aiData.sections[idx]) return;
+    const sec = aiData.sections[idx];
+    const btn = document.getElementById('add-btn-' + idx);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Adding…'; }
+
+    addSuggestedSection(sec.category, sec.items || [], function() {
+        if (btn) { btn.innerHTML = '<i class="bi bi-check-lg"></i> Added'; btn.classList.replace('btn-outline-success','btn-success'); }
+    });
+}
+
+// ── Add all sections at once ──────────────────────────────────
+function addAllSections() {
+    if (!aiData || !aiData.sections) return;
+    aiData.sections.forEach(function(sec, idx) { addSectionByIndex(idx); });
+}
+
+// ── Core: POST one section to the server ─────────────────────
+function addSuggestedSection(category, items, callback) {
     fetch('<?= APP_URL ?>/actions/save-estimate-section.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'estimate_id=' + ESTIMATE_ID + '&category=' + encodeURIComponent(category)
-             + '&items=' + encodeURIComponent(JSON.stringify(items))
+        body: 'estimate_id=' + ESTIMATE_ID
+            + '&category='   + encodeURIComponent(category)
+            + '&items='      + encodeURIComponent(JSON.stringify(items))
     })
-    .then(r => r.text())
-    .then(html => {
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
         const container = document.getElementById('sections-container');
-        const empty = document.getElementById('empty-msg');
+        const empty     = document.getElementById('empty-msg');
         if (empty) empty.remove();
-        // Let HTMX process OOB swaps in the response (totals panel)
+
+        // Process HTMX OOB swaps (totals panel) before injecting section HTML
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
-        // Find and process OOB spans first
-        tmp.querySelectorAll('[hx-swap-oob]').forEach(el => {
+        tmp.querySelectorAll('[hx-swap-oob]').forEach(function(el) {
             const target = document.getElementById(el.id);
             if (target) target.innerHTML = el.innerHTML;
             el.remove();
         });
+
         container.insertAdjacentHTML('beforeend', tmp.innerHTML);
-        // Re-initialize HTMX on the new elements
-        htmx.process(container);
-    });
+        htmx.process(container); // wire up HTMX on the new section
+
+        if (typeof callback === 'function') callback();
+    })
+    .catch(function(err) { alert('Failed to add section: ' + err.message); });
 }
 
+// ── Live totals update (no page reload) ──────────────────────
 function recalcTotals() {
     fetch('<?= APP_URL ?>/actions/recalc-estimate.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'estimate_id=' + ESTIMATE_ID
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
         if (data.subtotal !== undefined) {
-            document.getElementById('tot-subtotal').textContent = '$' + parseFloat(data.subtotal).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            document.getElementById('tot-waste').textContent   = '$' + parseFloat(data.waste_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            document.getElementById('tot-markup').textContent  = '$' + parseFloat(data.markup_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            document.getElementById('tot-tax').textContent     = '$' + parseFloat(data.tax_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            document.getElementById('tot-grand').textContent   = '$' + parseFloat(data.grand_total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('tot-subtotal').textContent = fmt(data.subtotal);
+            document.getElementById('tot-waste').textContent    = fmt(data.waste_amount);
+            document.getElementById('tot-markup').textContent   = fmt(data.markup_amount);
+            document.getElementById('tot-tax').textContent      = fmt(data.tax_amount);
+            document.getElementById('tot-grand').textContent    = fmt(data.grand_total);
         }
     });
 }
 
-function escHtml(s) {
+// ── Helpers ───────────────────────────────────────────────────
+function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmt(n) {
+    return '$' + parseFloat(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 </script>
