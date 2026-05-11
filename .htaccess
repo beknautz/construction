@@ -1,0 +1,37 @@
+Options -Indexes +FollowSymLinks
+DirectoryIndex index.php index.html
+
+# cPanel / Apache 2.4
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+# Apache 2.2 fallback
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
+</IfModule>
+
+# Enable rewrite engine (needed for clean URLs in later stages)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+</IfModule>
+
+# Block sensitive files from web access
+<FilesMatch "\.(env|sql|md|gitignore|gitkeep)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# PHP settings (cPanel shared/VPS — override if needed)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 20M
+    php_value max_execution_time 120
+    php_value memory_limit 256M
+</IfModule>
