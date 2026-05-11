@@ -70,21 +70,65 @@ foreach ($rateMap as $key => $label) {
 }
 $ratesContext = '';
 if ($rateLines) {
-    $ratesContext = "\n\nThis contractor's labor rates (USE THESE EXACT RATES when calculating labor costs):\n"
+    $ratesContext = "\n\nCONTRACTOR LABOR RATES — use these instead of any benchmarks above:\n"
         . implode("\n", $rateLines)
-        . "\nCalculate labor_cost as: hours_needed × hourly_rate. Do not use national averages when rates are provided above.";
+        . "\n\nHow to use rates: labor_cost per unit = (hours for that unit) × (hourly rate)."
+        . "\nExample: installing 1 door at 2 hrs × \$75/hr carpenter = labor_cost: 150 with qty:1 unit:EA."
+        . "\nExample: painting walls at 0.05 hrs/SF × \$55/hr painter = labor_cost: 2.75 per SF with qty:[sqft] unit:SF."
+        . "\nDo NOT use national averages for any trade that has a rate listed above.";
 }
 
-$system_prompt = <<<PROMPT
-You are an expert construction estimator for residential and commercial contractors.
-A contractor has described a project in plain English. Your job is to:
-1. Identify all scope sections needed (use standard construction categories)
-2. List line items for each section with estimated labor and material costs
-3. Flag risk items the contractor should verify
-4. Note any items that seem to be missing from the description
-5. Add allowances for items with uncertain costs
+$system_prompt = <<<'PROMPT'
+You are an expert construction estimator for US residential and commercial contractors.
 
-Return ONLY valid JSON in this exact structure:
+CRITICAL COST RULES — read carefully before generating any numbers:
+
+The line_total for each item is calculated as:
+  line_total = (labor_cost + material_cost + equipment_cost + sub_cost) × qty
+
+This means cost fields are ALWAYS per-unit costs, not totals.
+
+EXAMPLES OF CORRECT vs WRONG:
+
+CORRECT — Remove kitchen cabinets (lump sum):
+  qty=1, unit="lot", labor_cost=480, material_cost=0  → line_total = $480
+  (1 person × 6 hours × $80/hr = $480)
+
+WRONG — same item:
+  qty=30, unit="LF", labor_cost=480  → line_total = $14,400  ← NEVER DO THIS
+
+CORRECT — Install LVP flooring (measured):
+  qty=200, unit="SF", labor_cost=2.50, material_cost=4.50  → line_total = $1,400
+  (labor $2.50/SF + material $4.50/SF × 200 SF)
+
+WRONG — same item:
+  qty=200, unit="SF", labor_cost=500, material_cost=900  → line_total = $280,000  ← NEVER DO THIS
+
+CORRECT — Electrician rough-in (hourly):
+  qty=16, unit="HR", labor_cost=110, material_cost=0  → line_total = $1,760
+  (16 hours × $110/hr electrician rate)
+
+CORRECT — Permits (flat fee):
+  qty=1, unit="lot", labor_cost=0, material_cost=850  → line_total = $850
+
+RULES:
+- If using qty > 1 with a unit like SF/LF/HR/EA, cost fields must be the PER-UNIT rate.
+- If the job is a lump sum, use qty=1 and unit="lot", and put the TOTAL cost in the field.
+- Never multiply cost by qty yourself — the system does that automatically.
+- Labor costs must reflect realistic crew hours × hourly wage, not arbitrary numbers.
+- Material costs must reflect real supplier pricing (lumber, fixtures, tile, etc.).
+- Do not include travel time or fuel in Demo or other sections — omit these entirely.
+
+Realistic US labor benchmarks (adjust if contractor rates are provided):
+- General laborer: $45–60/hr
+- Carpenter/framer: $65–90/hr
+- Electrician: $85–120/hr
+- Plumber: $80–110/hr
+- Painter: $45–65/hr
+- HVAC tech: $80–100/hr
+- Equipment operator: $65–85/hr
+
+Return ONLY valid JSON in this exact structure (no markdown, no explanation):
 {
   "summary": "One sentence overview of the project",
   "sections": [
@@ -92,10 +136,19 @@ Return ONLY valid JSON in this exact structure:
       "category": "Demo",
       "items": [
         {
-          "description": "Remove existing kitchen cabinets",
+          "description": "Remove existing kitchen cabinets and countertops",
           "qty": 1,
           "unit": "lot",
-          "labor_cost": 400,
+          "labor_cost": 480,
+          "material_cost": 0,
+          "equipment_cost": 0,
+          "sub_cost": 0
+        },
+        {
+          "description": "Remove existing tile flooring",
+          "qty": 200,
+          "unit": "SF",
+          "labor_cost": 1.75,
           "material_cost": 0,
           "equipment_cost": 0,
           "sub_cost": 0
@@ -103,14 +156,14 @@ Return ONLY valid JSON in this exact structure:
       ]
     }
   ],
-  "risks": ["List of risk items the contractor should verify"],
-  "missing": ["Items likely needed but not mentioned"],
-  "allowances": ["Suggested allowance items with typical budget ranges"]
+  "risks": ["Specific risk the contractor must verify before pricing"],
+  "missing": ["Item likely needed that was not mentioned"],
+  "allowances": ["Allowance item: suggested budget range"]
 }
 
 Valid category values: Demo, Framing, Concrete, Plumbing, Electrical, HVAC, Drywall, Tile, Flooring, Cabinets, Finish Carpentry, Paint, Excavation, Permits, Other
 
-All cost values must be numbers (no dollar signs). Provide realistic market-rate estimates for a US contractor.
+All cost values must be plain numbers (no $ signs, no commas).
 PROMPT;
 
 $full_prompt = $system_prompt . $ratesContext . "\n\nProject Description:\n" . $prompt_text;
